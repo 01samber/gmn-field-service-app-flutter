@@ -7,8 +7,11 @@ import '../../../core/widgets/loading_spinner.dart';
 import '../../../core/widgets/error_message.dart';
 import '../../../core/utils/formatters.dart';
 import '../../work_orders/providers/work_orders_provider.dart';
+import '../../work_orders/data/models/work_order.dart';
 import '../../costs/providers/costs_provider.dart';
+import '../../costs/data/models/cost.dart';
 import '../../proposals/providers/proposals_provider.dart';
+import '../../proposals/data/models/proposal.dart';
 
 class IncomeStatementScreen extends ConsumerWidget {
   const IncomeStatementScreen({super.key});
@@ -23,11 +26,11 @@ class IncomeStatementScreen extends ConsumerWidget {
       appBar: AppBar(title: const Text('Income Statement')),
       body: workOrdersAsync.when(
         data: (workOrdersResponse) {
-          final workOrders = workOrdersResponse.data;
+          final List<WorkOrder> workOrders = workOrdersResponse.data;
           return costsAsync.when(
-            data: (costs) {
+            data: (List<Cost> costs) {
               return proposalsAsync.when(
-                data: (proposals) {
+                data: (List<Proposal> proposals) {
                   // Calculate metrics
                   final totalRevenue = proposals.fold<double>(
                     0,
@@ -270,8 +273,8 @@ class IncomeStatementScreen extends ConsumerWidget {
   }
 
   List<Map<String, dynamic>> _calculateMonthlyData(
-    List<dynamic> workOrders,
-    List<dynamic> costs,
+    List<WorkOrder> workOrders,
+    List<Cost> costs,
   ) {
     final now = DateTime.now();
     final data = <Map<String, dynamic>>[];
