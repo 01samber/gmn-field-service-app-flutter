@@ -32,7 +32,7 @@ class _ProposalFormScreenState extends ConsumerState<ProposalFormScreen> {
   final _techRateController = TextEditingController(text: '85');
   final _helperHoursController = TextEditingController(text: '0');
   final _helperRateController = TextEditingController(text: '45');
-  final _costMultiplierController = TextEditingController(text: '1.35');
+  final _ourCostController = TextEditingController(text: '0');
   final _taxRateController = TextEditingController(text: '0');
 
   String? _workOrderId;
@@ -69,7 +69,14 @@ class _ProposalFormScreenState extends ConsumerState<ProposalFormScreen> {
       _techRateController.text = proposal.techRate.toString();
       _helperHoursController.text = proposal.helperHours.toString();
       _helperRateController.text = proposal.helperRate.toString();
-      _costMultiplierController.text = proposal.costMultiplier.toString();
+      // Calculate our cost from the stored multiplier (backwards compatible)
+      // ourCost = baseCost, so we need to back-calculate it
+      final calculatedBaseCost = proposal.tripFee + proposal.assessmentFee + 
+          (proposal.techHours * proposal.techRate) + (proposal.helperHours * proposal.helperRate) +
+          proposal.parts.fold(0.0, (sum, p) => sum + p.total);
+      // If multiplier was used, ourCost was essentially baseCost / multiplier factor
+      // For new logic: ourCost is entered directly
+      _ourCostController.text = (calculatedBaseCost * 0.74).toStringAsFixed(2); // Default ~74% of base as cost
       _taxRateController.text = (proposal.taxRate * 100).toString();
       _workOrderId = proposal.workOrderId;
       _technicianId = proposal.technicianId;
@@ -87,7 +94,7 @@ class _ProposalFormScreenState extends ConsumerState<ProposalFormScreen> {
     _techRateController.dispose();
     _helperHoursController.dispose();
     _helperRateController.dispose();
-    _costMultiplierController.dispose();
+    _ourCostController.dispose();
     _taxRateController.dispose();
     super.dispose();
   }
@@ -108,10 +115,9 @@ class _ProposalFormScreenState extends ConsumerState<ProposalFormScreen> {
     return tripFee + assessmentFee + _laborCost + _partsCost;
   }
 
-  double get _subtotal {
-    final multiplier = double.tryParse(_costMultiplierController.text) ?? 1;
-    return _baseCost * multiplier;
-  }
+  double get _ourCost => double.tryParse(_ourCostController.text) ?? 0;
+
+  double get _subtotal => _baseCost; // Subtotal is now just the base cost (what we charge)
 
   double get _tax {
     final taxRate = (double.tryParse(_taxRateController.text) ?? 0) / 100;
@@ -119,6 +125,20 @@ class _ProposalFormScreenState extends ConsumerState<ProposalFormScreen> {
   }
 
   double get _total => _subtotal + _tax;
+
+  double get _profit => _subtotal - _ourCost;
+
+  double get _profitPercentage {
+    if (_subtotal <= 0) return 0;
+    return (_profit / _subtotal) * 100;
+  }
+
+  // Calculate multiplier for backwards compatibility with backend
+  double get _costMultiplier {
+    if (_ourCost <= 0) return 1.35; // Default multiplier
+    if (_baseCost <= 0) return 1.0;
+    return _baseCost / _ourCost;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -147,7 +167,7 @@ class _ProposalFormScreenState extends ConsumerState<ProposalFormScreen> {
                 data: (response) {
                   final workOrders = response.data;
                   return DropdownButtonFormField<String?>(
-                    value: _workOrderId,
+                    initialValue: _workOrderId,
                     decoration: const InputDecoration(),
                     items: [
                       const DropdownMenuItem(value: null, child: Text('None')),
@@ -174,7 +194,7 @@ class _ProposalFormScreenState extends ConsumerState<ProposalFormScreen> {
                 data: (response) {
                   final technicians = response.data;
                   return DropdownButtonFormField<String?>(
-                    value: _technicianId,
+                    initialValue: _technicianId,
                     decoration: const InputDecoration(),
                     items: [
                       const DropdownMenuItem(value: null, child: Text('None')),
@@ -203,7 +223,7 @@ class _ProposalFormScreenState extends ConsumerState<ProposalFormScreen> {
                 data: (response) {
                   final technicians = response.data;
                   return DropdownButtonFormField<String?>(
-                    value: _helperId,
+                    initialValue: _helperId,
                     decoration: const InputDecoration(),
                     items: [
                       const DropdownMenuItem(value: null, child: Text('None')),
@@ -351,14 +371,16 @@ class _ProposalFormScreenState extends ConsumerState<ProposalFormScreen> {
               ),
             const SizedBox(height: 24),
 
-            // Multiplier and Tax
+            // Our Cost and Tax
             Row(
               children: [
                 Expanded(
                   child: CustomTextField(
-                    controller: _costMultiplierController,
-                    label: 'Cost Multiplier',
+                    controller: _ourCostController,
+                    label: 'Our Cost',
+                    hint: 'What we pay',
                     keyboardType: TextInputType.number,
+                    prefixIcon: const Icon(Icons.attach_money),
                     onChanged: (_) => setState(() {}),
                   ),
                 ),
@@ -381,8 +403,40 @@ class _ProposalFormScreenState extends ConsumerState<ProposalFormScreen> {
               showBorder: false,
               child: Column(
                 children: [
-                  _buildSummaryRow('Base Cost', _baseCost),
-                  _buildSummaryRow('After Multiplier', _subtotal),
+                  _buildSummaryRow('Proposal Charge', _subtotal),
+                  _buildSummaryRow('Our Cost', _ourCost),
+                  _buildSummaryRow('Profit', _profit),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Profit Margin', style: TextStyle(color: Colors.white70)),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: _profitPercentage >= 25 
+                                ? Colors.green.withValues(alpha: 0.3) 
+                                : _profitPercentage >= 15 
+                                    ? Colors.orange.withValues(alpha: 0.3)
+                                    : Colors.red.withValues(alpha: 0.3),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            '${_profitPercentage.toStringAsFixed(1)}%',
+                            style: TextStyle(
+                              color: _profitPercentage >= 25 
+                                  ? Colors.greenAccent 
+                                  : _profitPercentage >= 15 
+                                      ? Colors.orangeAccent
+                                      : Colors.redAccent,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                   _buildSummaryRow('Tax', _tax),
                   const Divider(color: Colors.white30, height: 24),
                   Row(
@@ -600,7 +654,8 @@ class _ProposalFormScreenState extends ConsumerState<ProposalFormScreen> {
       'helperHours': double.tryParse(_helperHoursController.text) ?? 0,
       'helperRate': double.tryParse(_helperRateController.text) ?? 0,
       'parts': jsonEncode(_parts.map((p) => p.toJson()).toList()),
-      'costMultiplier': double.tryParse(_costMultiplierController.text) ?? 1.35,
+      'costMultiplier': _costMultiplier,
+      'ourCost': _ourCost,
       'taxRate': (double.tryParse(_taxRateController.text) ?? 0) / 100,
       if (_workOrderId != null) 'workOrderId': _workOrderId,
       if (_technicianId != null) 'technicianId': _technicianId,
