@@ -4,6 +4,8 @@ import '../../../core/api/api_client.dart';
 import '../data/files_repository.dart';
 import '../data/models/file_model.dart';
 
+const bool _useMockData = true;
+
 final filesRepositoryProvider = Provider<FilesRepository>((ref) {
   return FilesRepository(apiClient: ref.watch(apiClientProvider));
 });
@@ -13,8 +15,69 @@ final filesFilterProvider = StateProvider<FilesFilter>((ref) {
   return FilesFilter();
 });
 
+// Mock files data
+final _mockFiles = [
+  FileModel(
+    id: 'file-1',
+    name: 'invoice_alpha_corp.pdf',
+    type: 'application/pdf',
+    size: 245000,
+    path: '/uploads/invoice_alpha_corp.pdf',
+    createdAt: DateTime.now().subtract(const Duration(days: 2)),
+    workOrderId: 'wo-1',
+  ),
+  FileModel(
+    id: 'file-2',
+    name: 'hvac_repair_photo.jpg',
+    type: 'image/jpeg',
+    size: 1850000,
+    path: '/uploads/hvac_repair_photo.jpg',
+    createdAt: DateTime.now().subtract(const Duration(days: 3)),
+    workOrderId: 'wo-1',
+  ),
+  FileModel(
+    id: 'file-3',
+    name: 'water_heater_receipt.pdf',
+    type: 'application/pdf',
+    size: 156000,
+    path: '/uploads/water_heater_receipt.pdf',
+    createdAt: DateTime.now().subtract(const Duration(days: 5)),
+    workOrderId: 'wo-2',
+  ),
+  FileModel(
+    id: 'file-4',
+    name: 'electrical_panel.jpg',
+    type: 'image/jpeg',
+    size: 2100000,
+    path: '/uploads/electrical_panel.jpg',
+    createdAt: DateTime.now().subtract(const Duration(days: 1)),
+    workOrderId: 'wo-3',
+  ),
+  FileModel(
+    id: 'file-5',
+    name: 'work_completion_form.pdf',
+    type: 'application/pdf',
+    size: 320000,
+    path: '/uploads/work_completion_form.pdf',
+    createdAt: DateTime.now().subtract(const Duration(days: 4)),
+    workOrderId: 'wo-6',
+  ),
+];
+
 // Files list
 final filesProvider = FutureProvider.autoDispose<List<FileModel>>((ref) async {
+  if (_useMockData) {
+    await Future.delayed(const Duration(milliseconds: 300));
+    final filter = ref.watch(filesFilterProvider);
+    var files = _mockFiles;
+
+    if (filter.type != null && filter.type!.isNotEmpty) {
+      files = files.where((f) => f.type.contains(filter.type!)).toList();
+    }
+
+    return files;
+  }
+
   final repository = ref.watch(filesRepositoryProvider);
   final filter = ref.watch(filesFilterProvider);
   return repository.getFiles(filter: filter);

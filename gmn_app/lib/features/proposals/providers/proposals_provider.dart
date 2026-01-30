@@ -1,20 +1,38 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/api/api_client.dart';
+import '../../../core/data/mock_data.dart';
 import '../data/proposals_repository.dart';
 import '../data/models/proposal.dart';
+
+const bool _useMockData = true;
 
 final proposalsRepositoryProvider = Provider<ProposalsRepository>((ref) {
   return ProposalsRepository(apiClient: ref.watch(apiClientProvider));
 });
 
 // Proposals list
-final proposalsProvider = FutureProvider.autoDispose<List<Proposal>>((ref) async {
+final proposalsProvider = FutureProvider.autoDispose<List<Proposal>>((
+  ref,
+) async {
+  if (_useMockData) {
+    await Future.delayed(const Duration(milliseconds: 300));
+    return MockData.proposalsList;
+  }
+
   final repository = ref.watch(proposalsRepositoryProvider);
   return repository.getProposals();
 });
 
 // Single proposal
-final proposalProvider = FutureProvider.autoDispose.family<Proposal, String>((ref, id) async {
+final proposalProvider = FutureProvider.autoDispose.family<Proposal, String>((
+  ref,
+  id,
+) async {
+  if (_useMockData) {
+    await Future.delayed(const Duration(milliseconds: 200));
+    return MockData.proposalsList.firstWhere((p) => p.id == id);
+  }
+
   final repository = ref.watch(proposalsRepositoryProvider);
   return repository.getProposal(id);
 });
@@ -24,7 +42,8 @@ class ProposalsNotifier extends StateNotifier<AsyncValue<void>> {
   final ProposalsRepository _repository;
   final Ref _ref;
 
-  ProposalsNotifier(this._repository, this._ref) : super(const AsyncValue.data(null));
+  ProposalsNotifier(this._repository, this._ref)
+    : super(const AsyncValue.data(null));
 
   Future<Proposal?> create(Map<String, dynamic> data) async {
     state = const AsyncValue.loading();
@@ -81,9 +100,7 @@ class ProposalsNotifier extends StateNotifier<AsyncValue<void>> {
   }
 }
 
-final proposalsNotifierProvider = StateNotifierProvider<ProposalsNotifier, AsyncValue<void>>((ref) {
-  return ProposalsNotifier(
-    ref.watch(proposalsRepositoryProvider),
-    ref,
-  );
-});
+final proposalsNotifierProvider =
+    StateNotifierProvider<ProposalsNotifier, AsyncValue<void>>((ref) {
+      return ProposalsNotifier(ref.watch(proposalsRepositoryProvider), ref);
+    });

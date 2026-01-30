@@ -2,6 +2,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/auth_repository.dart';
 import '../data/models/user.dart';
 
+const bool _useMockData = true;
+
+// Mock user for demo
+final _mockUser = User(
+  id: 'user-1',
+  email: 'samerr@gmn.com',
+  name: 'Samer R',
+  role: 'dispatcher',
+  isActive: true,
+  createdAt: DateTime.now().subtract(const Duration(days: 180)),
+  updatedAt: DateTime.now(),
+);
+
 // Auth state provider - tracks the current user
 final authStateProvider =
     StateNotifierProvider<AuthStateNotifier, AsyncValue<User?>>((ref) {
@@ -27,6 +40,12 @@ class AuthStateNotifier extends StateNotifier<AsyncValue<User?>> {
   }
 
   Future<void> _initAuth() async {
+    if (_useMockData) {
+      await Future.delayed(const Duration(milliseconds: 300));
+      state = const AsyncValue.data(null);
+      return;
+    }
+
     try {
       final isLoggedIn = await _repository.isLoggedIn();
       if (isLoggedIn) {
@@ -47,6 +66,8 @@ class AuthStateNotifier extends StateNotifier<AsyncValue<User?>> {
   }
 
   Future<void> _refreshUser() async {
+    if (_useMockData) return;
+
     try {
       final user = await _repository.getCurrentUser();
       state = AsyncValue.data(user);
@@ -56,6 +77,13 @@ class AuthStateNotifier extends StateNotifier<AsyncValue<User?>> {
   }
 
   Future<void> login({required String email, required String password}) async {
+    if (_useMockData) {
+      state = const AsyncValue.loading();
+      await Future.delayed(const Duration(milliseconds: 500));
+      state = AsyncValue.data(_mockUser);
+      return;
+    }
+
     state = const AsyncValue.loading();
     try {
       final response = await _repository.login(
@@ -111,6 +139,11 @@ class AuthStateNotifier extends StateNotifier<AsyncValue<User?>> {
   }
 
   Future<void> logout() async {
+    if (_useMockData) {
+      state = const AsyncValue.data(null);
+      return;
+    }
+
     await _repository.logout();
     state = const AsyncValue.data(null);
   }

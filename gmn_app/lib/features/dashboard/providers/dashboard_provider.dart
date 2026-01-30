@@ -1,10 +1,18 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/data/mock_data.dart';
 import '../data/dashboard_repository.dart';
 import '../data/models/dashboard_stats.dart';
+
+const bool _useMockData = true;
 
 final dashboardStatsProvider = FutureProvider.autoDispose<DashboardStats>((
   ref,
 ) async {
+  if (_useMockData) {
+    await Future.delayed(const Duration(milliseconds: 300));
+    return MockData.dashboardStats;
+  }
+
   final repository = ref.watch(dashboardRepositoryProvider);
   return repository.getStats();
 });

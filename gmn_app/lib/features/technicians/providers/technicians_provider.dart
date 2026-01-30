@@ -1,6 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/technicians_repository.dart';
 import '../data/models/technician.dart';
+import '../../../core/data/mock_data.dart';
+
+const bool _useMockData = true;
 
 // Filter state
 class TechniciansFilter {
@@ -37,6 +40,32 @@ final techniciansFilterProvider = StateProvider<TechniciansFilter>(
 final techniciansProvider = FutureProvider.autoDispose<TechniciansResponse>((
   ref,
 ) async {
+  if (_useMockData) {
+    await Future.delayed(const Duration(milliseconds: 300));
+    final filter = ref.watch(techniciansFilterProvider);
+    var technicians = MockData.technicians;
+
+    if (filter.trade != null && filter.trade!.isNotEmpty) {
+      technicians = technicians.where((t) => t.trade == filter.trade).toList();
+    }
+    if (filter.search != null && filter.search!.isNotEmpty) {
+      final search = filter.search!.toLowerCase();
+      technicians = technicians
+          .where((t) => t.name.toLowerCase().contains(search))
+          .toList();
+    }
+    if (!filter.includeBlacklisted) {
+      technicians = technicians.where((t) => !t.isBlacklisted).toList();
+    }
+
+    return TechniciansResponse(
+      data: technicians,
+      total: technicians.length,
+      page: 1,
+      limit: 50,
+    );
+  }
+
   final repository = ref.watch(techniciansRepositoryProvider);
   final filter = ref.watch(techniciansFilterProvider);
 
@@ -50,6 +79,11 @@ final techniciansProvider = FutureProvider.autoDispose<TechniciansResponse>((
 // Single technician provider
 final technicianProvider = FutureProvider.autoDispose
     .family<Technician, String>((ref, id) async {
+      if (_useMockData) {
+        await Future.delayed(const Duration(milliseconds: 200));
+        return MockData.technicians.firstWhere((t) => t.id == id);
+      }
+
       final repository = ref.watch(techniciansRepositoryProvider);
       return repository.getTechnician(id);
     });

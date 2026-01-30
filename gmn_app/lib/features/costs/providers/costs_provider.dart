@@ -1,7 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/api/api_client.dart';
+import '../../../core/data/mock_data.dart';
 import '../data/costs_repository.dart';
 import '../data/models/cost.dart';
+
+const bool _useMockData = true;
 
 final costsRepositoryProvider = Provider<CostsRepository>((ref) {
   return CostsRepository(apiClient: ref.watch(apiClientProvider));
@@ -14,6 +17,18 @@ final costsFilterProvider = StateProvider<CostsFilter>((ref) {
 
 // Costs list
 final costsProvider = FutureProvider.autoDispose<List<Cost>>((ref) async {
+  if (_useMockData) {
+    await Future.delayed(const Duration(milliseconds: 300));
+    final filter = ref.watch(costsFilterProvider);
+    var costList = MockData.costsList;
+
+    if (filter.status != null && filter.status!.isNotEmpty) {
+      costList = costList.where((c) => c.status == filter.status).toList();
+    }
+
+    return costList;
+  }
+
   final repository = ref.watch(costsRepositoryProvider);
   final filter = ref.watch(costsFilterProvider);
   return repository.getCosts(filter: filter);

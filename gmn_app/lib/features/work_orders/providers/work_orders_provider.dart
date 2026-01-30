@@ -1,6 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/work_orders_repository.dart';
 import '../data/models/work_order.dart';
+import '../../../core/data/mock_data.dart';
+
+// Use mock data mode
+const bool _useMockData = true;
 
 // Filter state
 class WorkOrdersFilter {
@@ -36,6 +40,35 @@ final workOrdersFilterProvider = StateProvider<WorkOrdersFilter>(
 final workOrdersProvider = FutureProvider.autoDispose<WorkOrdersResponse>((
   ref,
 ) async {
+  if (_useMockData) {
+    await Future.delayed(const Duration(milliseconds: 300));
+    final filter = ref.watch(workOrdersFilterProvider);
+    var workOrders = MockData.workOrders;
+
+    if (filter.status != null && filter.status!.isNotEmpty) {
+      workOrders = workOrders
+          .where((wo) => wo.status == filter.status)
+          .toList();
+    }
+    if (filter.search != null && filter.search!.isNotEmpty) {
+      final search = filter.search!.toLowerCase();
+      workOrders = workOrders
+          .where(
+            (wo) =>
+                wo.woNumber.toLowerCase().contains(search) ||
+                wo.client.toLowerCase().contains(search),
+          )
+          .toList();
+    }
+
+    return WorkOrdersResponse(
+      data: workOrders,
+      total: workOrders.length,
+      page: 1,
+      limit: 50,
+    );
+  }
+
   final repository = ref.watch(workOrdersRepositoryProvider);
   final filter = ref.watch(workOrdersFilterProvider);
 
@@ -51,6 +84,11 @@ final workOrderProvider = FutureProvider.autoDispose.family<WorkOrder, String>((
   ref,
   id,
 ) async {
+  if (_useMockData) {
+    await Future.delayed(const Duration(milliseconds: 200));
+    return MockData.workOrders.firstWhere((wo) => wo.id == id);
+  }
+
   final repository = ref.watch(workOrdersRepositoryProvider);
   return repository.getWorkOrder(id);
 });

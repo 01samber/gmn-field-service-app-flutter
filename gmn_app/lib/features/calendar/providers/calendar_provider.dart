@@ -1,7 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/api/api_client.dart';
+import '../../../core/data/mock_data.dart';
 import '../data/calendar_repository.dart';
 import '../data/models/calendar_event.dart';
+
+const bool _useMockData = true;
 
 final calendarRepositoryProvider = Provider<CalendarRepository>((ref) {
   return CalendarRepository(apiClient: ref.watch(apiClientProvider));
@@ -16,6 +19,13 @@ final selectedDateProvider = StateProvider<DateTime>((ref) {
 final calendarItemsProvider = FutureProvider.autoDispose<List<CalendarItem>>((
   ref,
 ) async {
+  if (_useMockData) {
+    await Future.delayed(const Duration(milliseconds: 300));
+    return MockData.calendarEvents
+        .map((e) => CalendarItem.fromEvent(e))
+        .toList();
+  }
+
   final repository = ref.watch(calendarRepositoryProvider);
   return repository.getCalendarItems();
 });
