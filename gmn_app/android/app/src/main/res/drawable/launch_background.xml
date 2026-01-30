@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- GMN App Launch Screen -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Background gradient simulation with solid color -->
+    <item android:drawable="@color/launch_background" />
+</layer-list>

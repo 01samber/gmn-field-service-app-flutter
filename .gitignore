@@ -1,0 +1,51 @@
+# Dependencies
+node_modules/
+src/node_modules/
+server/node_modules/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+server/.env
+
+# Database
+server/prisma/dev.db
+server/prisma/dev.db-journal
+*.db
+*.db-journal
+
+# Build output
+dist/
+build/
+.output/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Uploads
+server/uploads/*
+!server/uploads/.gitkeep
+
+# Cache
+.cache/
+.parcel-cache/
+.rollup.cache/
+
+# Testing
+coverage/
+
+# Cursor
+.cursor/

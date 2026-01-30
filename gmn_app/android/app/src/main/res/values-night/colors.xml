@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- GMN Brand Colors (Dark Mode) -->
+    <color name="launch_background">#0F172A</color>
+    <color name="brand_primary">#0EA5E9</color>
+</resources>
