@@ -415,9 +415,9 @@ class _ProposalFormScreenState extends ConsumerState<ProposalFormScreen> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(
-                            color: _profitPercentage >= 25 
+                            color: _profitPercentage >= 100 
                                 ? Colors.green.withValues(alpha: 0.3) 
-                                : _profitPercentage >= 15 
+                                : _profitPercentage >= 75 
                                     ? Colors.orange.withValues(alpha: 0.3)
                                     : Colors.red.withValues(alpha: 0.3),
                             borderRadius: BorderRadius.circular(4),
@@ -425,9 +425,9 @@ class _ProposalFormScreenState extends ConsumerState<ProposalFormScreen> {
                           child: Text(
                             '${_profitPercentage.toStringAsFixed(1)}%',
                             style: TextStyle(
-                              color: _profitPercentage >= 25 
+                              color: _profitPercentage >= 100 
                                   ? Colors.greenAccent 
-                                  : _profitPercentage >= 15 
+                                  : _profitPercentage >= 75 
                                       ? Colors.orangeAccent
                                       : Colors.redAccent,
                               fontWeight: FontWeight.bold,

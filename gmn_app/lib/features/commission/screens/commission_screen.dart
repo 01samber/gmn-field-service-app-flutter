@@ -5,6 +5,7 @@ import '../../../core/widgets/custom_card.dart';
 import '../../../core/widgets/loading_spinner.dart';
 import '../../../core/widgets/error_message.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../core/data/mock_data.dart';
 import '../../work_orders/providers/work_orders_provider.dart';
 import '../../work_orders/data/models/work_order.dart';
 
@@ -242,12 +243,14 @@ class _CommissionScreenState extends ConsumerState<CommissionScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildRule('Only PAID jobs count toward commission'),
+                      _buildRule('Only INVOICED and PAID jobs count toward commission'),
                       _buildRule(
-                        'Profit ratio must be ≥75% (unless Team Lead exception)',
+                        'Profit ratio 75-100%: counts as 1.0 work order',
                       ),
-                      _buildRule('Incurred or NTE ≤ \$225 = 0.5 count'),
-                      _buildRule('Reassigned jobs = ×2 count'),
+                      _buildRule(
+                        'Profit ratio >100%: counts based on profit % (e.g., 120% profit = 1.2 count)',
+                      ),
+                      _buildRule('Profit ratio <75%: does not qualify'),
                     ],
                   ),
                 ),
@@ -331,8 +334,10 @@ class _CommissionScreenState extends ConsumerState<CommissionScreen> {
   }
 
   Widget _buildWorkOrderCard(BuildContext context, WorkOrder wo) {
-    final isPaid = wo.status == 'paid';
+    final qualifies = wo.status == 'invoiced' || wo.status == 'paid';
     final count = _getWorkOrderCount(wo);
+    final profitPct = _getProfitPercentage(wo);
+    final isQualified = count > 0;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
@@ -344,14 +349,24 @@ class _CommissionScreenState extends ConsumerState<CommissionScreen> {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: isPaid
+                color: isQualified
                     ? AppColors.success.withAlpha(26)
-                    : AppColors.surfaceVariant,
+                    : qualifies
+                        ? AppColors.warning.withAlpha(26)
+                        : AppColors.surfaceVariant,
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(
-                isPaid ? Icons.check_circle : Icons.pending,
-                color: isPaid ? AppColors.success : AppColors.textTertiary,
+                isQualified 
+                    ? Icons.check_circle 
+                    : qualifies 
+                        ? Icons.warning_amber
+                        : Icons.pending,
+                color: isQualified 
+                    ? AppColors.success 
+                    : qualifies 
+                        ? AppColors.warning
+                        : AppColors.textTertiary,
                 size: 20,
               ),
             ),
@@ -372,6 +387,19 @@ class _CommissionScreenState extends ConsumerState<CommissionScreen> {
                       color: AppColors.textSecondary,
                     ),
                   ),
+                  if (qualifies)
+                    Text(
+                      'Profit: ${profitPct.toStringAsFixed(0)}%',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: profitPct >= 100 
+                            ? AppColors.success 
+                            : profitPct >= 75 
+                                ? AppColors.warning
+                                : AppColors.error,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -382,11 +410,11 @@ class _CommissionScreenState extends ConsumerState<CommissionScreen> {
                   Formatters.formatStatus(wo.status),
                   style: TextStyle(
                     fontSize: 12,
-                    color: isPaid ? AppColors.success : AppColors.textSecondary,
-                    fontWeight: isPaid ? FontWeight.w600 : null,
+                    color: qualifies ? AppColors.success : AppColors.textSecondary,
+                    fontWeight: qualifies ? FontWeight.w600 : null,
                   ),
                 ),
-                if (isPaid)
+                if (isQualified)
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 6,
@@ -401,6 +429,25 @@ class _CommissionScreenState extends ConsumerState<CommissionScreen> {
                       style: const TextStyle(
                         fontSize: 12,
                         color: AppColors.primary,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  )
+                else if (qualifies)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.error.withAlpha(26),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Text(
+                      'Low profit',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: AppColors.error,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -421,19 +468,54 @@ class _CommissionScreenState extends ConsumerState<CommissionScreen> {
   }
 
   List<WorkOrder> _getQualifiedWorkOrders(List<WorkOrder> workOrders) {
-    return workOrders.where((wo) => wo.status == 'paid').toList();
+    // Only invoiced and paid work orders qualify
+    return workOrders.where((wo) => 
+      wo.status == 'invoiced' || wo.status == 'paid'
+    ).toList();
+  }
+
+  // Get the cost for a work order from mock data
+  double _getWorkOrderCost(WorkOrder wo) {
+    // Find the cost associated with this work order
+    final costList = MockData.costsList;
+    final woCosts = costList.where((c) => c.workOrderId == wo.id).toList();
+    if (woCosts.isEmpty) {
+      // If no cost found, assume cost is 74% of NTE (default margin)
+      return wo.nte * 0.74;
+    }
+    return woCosts.fold(0.0, (sum, c) => sum + c.amount);
+  }
+
+  // Calculate profit percentage: (charge - cost) / cost * 100
+  double _getProfitPercentage(WorkOrder wo) {
+    final cost = _getWorkOrderCost(wo);
+    if (cost <= 0) return 0;
+    final charge = wo.nte;
+    final profit = charge - cost;
+    return (profit / cost) * 100;
   }
 
   double _getWorkOrderCount(WorkOrder wo) {
-    // Basic count logic
-    double count = 1.0;
-
-    // NTE <= $225 = 0.5 count
-    if (wo.nte <= 225) {
-      count = 0.5;
+    // Only invoiced or paid work orders qualify
+    if (wo.status != 'invoiced' && wo.status != 'paid') {
+      return 0;
     }
 
-    return count;
+    final profitPercentage = _getProfitPercentage(wo);
+
+    // Profit < 75%: does not qualify
+    if (profitPercentage < 75) {
+      return 0;
+    }
+
+    // Profit 75-100%: counts as 1.0
+    if (profitPercentage >= 75 && profitPercentage <= 100) {
+      return 1.0;
+    }
+
+    // Profit > 100%: counts based on profit percentage
+    // e.g., cost 1000, charge 2200 -> profit = 1200, profit% = 120% -> count = 1.2
+    return profitPercentage / 100;
   }
 
   Map<String, dynamic> _calculateCommission(List<WorkOrder> qualifiedWOs) {
@@ -441,8 +523,11 @@ class _CommissionScreenState extends ConsumerState<CommissionScreen> {
     double totalRevenue = 0;
 
     for (final wo in qualifiedWOs) {
-      qualifiedCount += _getWorkOrderCount(wo);
-      totalRevenue += wo.nte;
+      final count = _getWorkOrderCount(wo);
+      if (count > 0) {
+        qualifiedCount += count;
+        totalRevenue += wo.nte;
+      }
     }
 
     // Find applicable rate
