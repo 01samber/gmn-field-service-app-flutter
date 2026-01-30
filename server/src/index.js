@@ -24,7 +24,7 @@ const PORT = process.env.PORT || 3001;
 
 // Middleware
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://127.0.0.1:5173'],
+  origin: true, // Allow all origins for development
   credentials: true,
 }));
 app.use(express.json({ limit: '50mb' }));
